@@ -19,15 +19,26 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from .captcha import generate_captcha_image
-from .pdf_generator import (
-    generate_corrupt_pdf,
-    generate_html_pdf,
-    generate_malicious_pdf,
-    generate_oversize_pdf,
-    generate_valid_pdf,
-)
-from .state import portal_state
+try:
+    from .captcha import generate_captcha_image
+    from .pdf_generator import (
+        generate_corrupt_pdf,
+        generate_html_pdf,
+        generate_malicious_pdf,
+        generate_oversize_pdf,
+        generate_valid_pdf,
+    )
+    from .state import portal_state
+except ImportError:
+    from captcha import generate_captcha_image
+    from pdf_generator import (
+        generate_corrupt_pdf,
+        generate_html_pdf,
+        generate_malicious_pdf,
+        generate_oversize_pdf,
+        generate_valid_pdf,
+    )
+    from state import portal_state
 
 # Setup Jinja2 Templates
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
