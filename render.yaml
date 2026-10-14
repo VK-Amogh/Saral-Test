@@ -1,0 +1,73 @@
+# Render Infrastructure Blueprint for Saral AI
+# Documentation: https://render.com/docs/blueprint-spec
+
+services:
+  # =========================================================================
+  # 1. Saral AI FastAPI Backend Web Service
+  # =========================================================================
+  - type: web
+    name: saral-backend
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && (test -f requirements.txt && pip install -r requirements.txt || pip install .)
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: WORKER_SHARED_SECRET
+        generateValue: true
+      - key: WORKER_SECRET
+        generateValue: true
+      - key: CLEANUP_SECRET
+        generateValue: true
+      - key: STORAGE_BUCKET
+        value: documents
+      - key: ALLOWED_DOMAINS
+        value: mock-portal.local,127.0.0.1,localhost,saral-mock-portal.onrender.com,uidai.gov.in,myaadhaar.uidai.gov.in
+      - key: CHAT_RATE_LIMIT
+        value: 30/minute
+      - key: INPUT_RATE_LIMIT
+        value: 10/minute
+
+  # =========================================================================
+  # 2. Saral AI Mock Government Portal Web Service
+  # =========================================================================
+  - type: web
+    name: saral-mock-portal
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: mock_portal
+    buildCommand: pip install --upgrade pip && (test -f requirements.txt && pip install -r requirements.txt || pip install fastapi uvicorn jinja2 pillow pypdf)
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PORT
+        value: 10000

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock UIDAI — Download Electronic Aadhaar</title>
+    <style>
+        :root {
+            --uidai-navy: #002244;
+            --uidai-saffron: #f37021;
+            --uidai-green: #138808;
+            --uidai-light-bg: #f8fafc;
+            --uidai-border: #cbd5e1;
+            --uidai-error: #b91c1c;
+            --uidai-error-bg: #fef2f2;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: var(--uidai-light-bg); color: #1e293b; min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: #ffffff; border-bottom: 2px solid var(--uidai-saffron); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+        .logo-section { display: flex; align-items: center; gap: 16px; }
+        .logo-emblem { height: 48px; }
+        .portal-title { font-size: 18px; font-weight: 700; color: var(--uidai-navy); }
+        .portal-sub { font-size: 12px; color: #64748b; }
+        .flag-strip { height: 4px; background: linear-gradient(90deg, #ff9933 33.3%, #ffffff 33.3%, #ffffff 66.6%, #138808 66.6%); }
+        main { flex: 1; max-width: 640px; margin: 40px auto; width: 95%; background: #ffffff; border-radius: 8px; border: 1px solid var(--uidai-border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 32px; }
+        h1 { font-size: 22px; color: var(--uidai-navy); margin-bottom: 8px; text-align: center; }
+        p.subtitle { font-size: 14px; color: #64748b; text-align: center; margin-bottom: 24px; }
+        .alert-error { background-color: var(--uidai-error-bg); border: 1px solid var(--uidai-error); color: var(--uidai-error); padding: 12px 16px; border-radius: 6px; font-size: 14px; margin-bottom: 20px; font-weight: 500; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 12px 14px; border: 1px solid var(--uidai-border); border-radius: 6px; font-size: 15px; outline: none; transition: border-color 0.2s; }
+        input[type="text"]:focus, input[type="password"]:focus { border-color: var(--uidai-navy); ring: 2px rgba(0,34,68,0.1); }
+        .captcha-container { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+        .captcha-box { border: 1px solid var(--uidai-border); border-radius: 6px; overflow: hidden; background: #fff; height: 70px; display: flex; align-items: center; justify-content: center; }
+        .btn-refresh { background: #f1f5f9; border: 1px solid var(--uidai-border); color: #475569; padding: 10px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.2s; }
+        .btn-refresh:hover { background: #e2e8f0; }
+        .btn-primary { width: 100%; background: var(--uidai-navy); color: #ffffff; padding: 14px; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+        .btn-primary:hover { background: #00172e; }
+        footer { text-align: center; padding: 20px; font-size: 12px; color: #94a3b8; border-top: 1px solid var(--uidai-border); }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-section">
+            <svg class="logo-emblem" viewBox="0 0 100 100" width="48" height="48">
+                <circle cx="50" cy="50" r="45" fill="#f37021" opacity="0.9" />
+                <circle cx="50" cy="50" r="28" fill="#ffffff" />
+                <circle cx="50" cy="50" r="16" fill="#002244" />
+            </svg>
+            <div>
+                <div class="portal-title">Unique Identification Authority of India</div>
+                <div class="portal-sub">Government of India — Official Mock Portal</div>
+            </div>
+        </div>
+    </header>
+    <div class="flag-strip"></div>
+
+    <main>
+        <h1>Download Electronic Aadhaar</h1>
+        <p class="subtitle">Enter your 12-digit Aadhaar Number or 16-digit Virtual ID (VID) to receive OTP</p>
+
+        {% if error_msg %}
+        <div id="error_msg" class="alert-error" role="alert">{{ error_msg }}</div>
+        {% endif %}
+
+        <form id="login_form" action="/login" method="POST">
+            <input type="hidden" name="session_id" value="{{ session_id }}" />
+
+            <div class="form-group">
+                <label for="uid_input">Aadhaar Number / VID</label>
+                {% if changed_selectors %}
+                <input id="broken_uid_field" name="uid" type="text" maxlength="16" placeholder="Enter Aadhaar Number / VID" value="{{ uid or '' }}" required />
+                {% else %}
+                <input id="uid_input" name="uid" type="text" maxlength="16" placeholder="Enter Aadhaar Number / VID" value="{{ uid or '' }}" required />
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="captcha_input">Enter Security Code (CAPTCHA)</label>
+                <div class="captcha-container">
+                    <div class="captcha-box">
+                        {% if changed_selectors %}
+                        <img id="broken_captcha_img" src="/captcha?session_id={{ session_id }}" alt="CAPTCHA Challenge" width="200" height="70" />
+                        {% else %}
+                        <img id="captcha_img" src="/captcha?session_id={{ session_id }}" alt="CAPTCHA Challenge" width="200" height="70" />
+                        {% endif %}
+                    </div>
+                    <button id="btn_refresh_captcha" type="button" class="btn-refresh" onclick="refreshCaptcha()">Refresh</button>
+                </div>
+                <div style="margin-top: 10px;">
+                    {% if changed_selectors %}
+                    <input id="broken_captcha_input" name="captcha" type="text" maxlength="8" placeholder="Type letters shown above" autocomplete="off" required />
+                    {% else %}
+                    <input id="captcha_input" name="captcha" type="text" maxlength="8" placeholder="Type letters shown above" autocomplete="off" required />
+                    {% endif %}
+                </div>
+            </div>
+
+            <button id="btn_send_otp" type="submit" class="btn-primary">Send OTP</button>
+        </form>
+    </main>
+
+    <footer>
+        <p>© 2026 Unique Identification Authority of India (Simulated Environment for Saral AI). Zero real identity data transmitted.</p>
+    </footer>
+
+    <script>
+        function refreshCaptcha() {
+            const img = document.getElementById('captcha_img') || document.getElementById('broken_captcha_img');
+            if (img) {
+                img.src = '/captcha?session_id={{ session_id }}&t=' + new Date().getTime();
+            }
+        }
+    </script>
+</body>
+</html>

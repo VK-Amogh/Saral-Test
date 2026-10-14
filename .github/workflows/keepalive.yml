@@ -1,0 +1,72 @@
+name: Supabase Keepalive Daily Ping
+
+on:
+  schedule:
+    # Runs everyday at 04:00 UTC (09:30 AM IST)
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: keepalive-cron
+  cancel-in-progress: true
+
+jobs:
+  ping-supabase:
+    name: Ping Supabase Free-Tier Project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Keepalive Ping to Supabase REST and Auth Endpoints
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -e
+          if [ -z "${SUPABASE_URL}" ]; then
+            echo "::error::SUPABASE_URL secret is not configured!"
+            exit 1
+          fi
+
+          if [ -z "${SUPABASE_ANON_KEY}" ]; then
+            echo "::error::SUPABASE_ANON_KEY or SUPABASE_PUBLISHABLE_KEY secret is not configured!"
+            exit 1
+          fi
+
+          echo "Pinging Supabase Project: ${SUPABASE_URL}"
+
+          # Probe 1: REST API query on profiles table (keeps PostgREST & Postgres active)
+          REST_ENDPOINT="${SUPABASE_URL}/rest/v1/profiles?select=id&limit=1"
+          echo "Executing Probe 1: GET ${REST_ENDPOINT}"
+
+          HTTP_CODE=$(curl -s -o /tmp/supabase_rest_response.json -w "%{http_code}" \
+            --retry 3 \
+            --retry-delay 5 \
+            --max-time 15 \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "${REST_ENDPOINT}")
+
+          echo "Probe 1 HTTP Response Code: ${HTTP_CODE}"
+
+          # Probe 2: Auth Health probe (keeps GoTrue auth service active)
+          AUTH_ENDPOINT="${SUPABASE_URL}/auth/v1/health"
+          echo "Executing Probe 2: GET ${AUTH_ENDPOINT}"
+
+          AUTH_CODE=$(curl -s -o /tmp/supabase_auth_response.json -w "%{http_code}" \
+            --retry 3 \
+            --retry-delay 5 \
+            --max-time 15 \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            "${AUTH_ENDPOINT}")
+
+          echo "Probe 2 HTTP Response Code: ${AUTH_CODE}"
+
+          # Validation: HTTP 200 or 206 indicates active service
+          if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 400 ]; then
+            echo "Keepalive Success: Supabase database and REST API are fully active."
+          elif [ "${AUTH_CODE}" -ge 200 ] && [ "${AUTH_CODE}" -lt 400 ]; then
+            echo "Keepalive Success: Supabase auth service responded affirmatively."
+          else
+            echo "::warning::Unexpected status codes: REST=${HTTP_CODE}, Auth=${AUTH_CODE}. Inspecting response..."
+            cat /tmp/supabase_rest_response.json || true
+            exit 1
+          fi

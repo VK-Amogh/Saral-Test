@@ -1,0 +1,143 @@
+name: Saral AI CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Backend Unit & Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f "backend/requirements.txt" ]; then
+            pip install -r backend/requirements.txt
+          fi
+          if [ -f "backend/pyproject.toml" ]; then
+            pip install ./backend
+          fi
+          pip install pytest pytest-cov pytest-asyncio httpx cryptography pydantic asyncpg fastapi uvicorn pydantic-settings
+
+      - name: Run Supabase Schema & Security Tests
+        run: |
+          if [ -d "supabase/tests" ]; then
+            pytest supabase/tests/ -v --tb=short
+          fi
+
+      - name: Run Backend Unit & Integration Tests
+        run: |
+          if [ -d "backend/tests" ]; then
+            pytest backend/tests/ -v --tb=short
+          else
+            echo "backend/tests directory not yet present, running available unit tests."
+          fi
+
+  mock-portal-tests:
+    name: Mock Government Portal Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Mock Portal Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f "mock_portal/requirements.txt" ]; then
+            pip install -r mock_portal/requirements.txt
+          fi
+          pip install pytest pytest-asyncio httpx fastapi uvicorn jinja2 pillow pypdf
+
+      - name: Run Mock Portal Tests
+        run: |
+          if [ -d "mock_portal/tests" ]; then
+            pytest mock_portal/tests/ -v --tb=short
+          else
+            echo "mock_portal/tests directory not yet present, skipping standalone execution."
+          fi
+
+  e2e-test-suite:
+    name: End-to-End Test Suite Runner (Tiers 1-4)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install E2E Test Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio httpx cryptography pydantic
+
+      - name: Run Comprehensive 4-Tier E2E Test Suite
+        env:
+          E2E_LIVE: "0"
+        run: |
+          python run_e2e_tests.py -v
+
+  flutter-ci:
+    name: Flutter Static Analysis & Widget Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter Dependencies
+        run: |
+          cd app
+          flutter pub get
+
+      - name: Run Flutter Static Analysis
+        run: |
+          cd app
+          flutter analyze --no-fatal-infos
+
+      - name: Run Flutter Widget Tests
+        run: |
+          cd app
+          flutter test --coverage

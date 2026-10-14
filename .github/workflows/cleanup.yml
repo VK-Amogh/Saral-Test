@@ -1,0 +1,52 @@
+name: Hourly Document Retention Cleanup
+
+on:
+  schedule:
+    # Runs at minute 0 of every hour
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: retention-cleanup-cron
+  cancel-in-progress: true
+
+jobs:
+  sweep-retention:
+    name: Sweep Expired Vault Documents
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Authenticated Retention Cleanup Request
+        env:
+          BACKEND_API_URL: ${{ secrets.BACKEND_API_URL || 'https://saral-backend.onrender.com' }}
+          CLEANUP_SECRET: ${{ secrets.CLEANUP_SECRET }}
+        run: |
+          set -e
+          if [ -z "${CLEANUP_SECRET}" ]; then
+            echo "::error::CLEANUP_SECRET secret is not configured in GitHub repository secrets!"
+            exit 1
+          fi
+
+          CLEANUP_ENDPOINT="${BACKEND_API_URL%/}/internal/cleanup"
+          echo "Triggering retention sweep at: ${CLEANUP_ENDPOINT}"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST "${CLEANUP_ENDPOINT}" \
+            -H "Content-Type: application/json" \
+            -H "X-Cleanup-Secret: ${CLEANUP_SECRET}" \
+            -H "Authorization: Bearer ${CLEANUP_SECRET}" \
+            --retry 3 \
+            --retry-delay 10 \
+            --max-time 60)
+
+          HTTP_BODY=$(echo "${RESPONSE}" | head -n -1)
+          HTTP_STATUS=$(echo "${RESPONSE}" | tail -n 1)
+
+          echo "Response HTTP Status: ${HTTP_STATUS}"
+          echo "Response Payload: ${HTTP_BODY}"
+
+          if [ "${HTTP_STATUS}" -eq 200 ]; then
+            echo "Retention cleanup succeeded. Expired documents purged from Postgres and Supabase Storage."
+          else
+            echo "::error::Cleanup endpoint returned non-200 status: ${HTTP_STATUS}"
+            exit 1
+          fi
