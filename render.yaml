@@ -61,7 +61,7 @@ services:
     region: oregon
     rootDir: mock_portal
     buildCommand: pip install --upgrade pip && (test -f requirements.txt && pip install -r requirements.txt || pip install fastapi uvicorn jinja2 pillow pypdf)
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeploy: true
     envVars:
